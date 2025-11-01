@@ -68,6 +68,13 @@ def mux_audio_if_present(video: Path, audio_path: Optional[str], out_dir: Path) 
     if not audio_file.exists():
         logger.warning("Audio file %s missing; skipping mux", audio_file)
         return video
+    if audio_file.stat().st_size == 0:
+        logger.warning("Audio file %s is empty; skipping mux", audio_file)
+        return video
     target = out_dir / "final_with_audio.mp4"
-    mux_audio(video, audio_file, target)
+    try:
+        mux_audio(video, audio_file, target)
+    except Exception as exc:  # pragma: no cover - runtime safeguard
+        logger.warning("Failed to mux audio (%s); returning video-only output.", exc)
+        return video
     return target

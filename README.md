@@ -55,7 +55,7 @@ See `examples/shots_example.json` for a ready-to-run plan.
   source .venv/bin/activate
   pytest
   ```
-  👷 Tip: The pipeline tries `ffmpeg` first and automatically falls back to OpenCV’s `VideoWriter` when the CLI binary or Python bindings are missing, so tests succeed even on minimal environments. Install a system `ffmpeg` to match production behavior.
+  👷 Tip: Encoding now cascades from `ffmpeg-python` → `imageio` → OpenCV, so smoke tests succeed even without a working `ffmpeg` binary. Install system ffmpeg to mirror production and avoid the reduced-dimension warning emitted by `imageio`.
 - Benchmark (480p baseline):
   ```bash
   ./scripts/benchmark.sh
@@ -64,6 +64,8 @@ See `examples/shots_example.json` for a ready-to-run plan.
 ## Post-Processing
 
 The placeholders in `vidforge/pipeline/post.py` copy inputs by default. Integrate real RIFE/ESRGAN pipelines where marked once you have compatible builds (ONNX Runtime, TensorRT, ect.).
+
+Audio muxing gracefully skips missing or empty tracks and falls back to video-only output if ffmpeg cannot combine the streams.
 
 ## License
 

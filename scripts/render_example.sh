@@ -8,7 +8,7 @@ OUT_DIR="${ROOT_DIR}/out/desert_patrol"
 # shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"
 
-python -m vidforge.cli render \
+python -m vidforge.cli \
   --plan "${ROOT_DIR}/examples/shots_example.json" \
   --out "${OUT_DIR}" \
   --model cogvideox \

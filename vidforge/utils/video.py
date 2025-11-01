@@ -21,6 +21,11 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     cv2 = None  # type: ignore
 
+try:
+    import imageio.v2 as imageio
+except ImportError:  # pragma: no cover - optional dependency
+    imageio = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,6 +68,21 @@ def _encode_with_ffmpeg(
         raise RuntimeError(f"ffmpeg failed: {stderr.decode('utf-8', errors='replace')}")
 
 
+def _encode_with_imageio(frames: List[np.ndarray], fps: int, output_path: Path) -> None:
+    if imageio is None:
+        raise RuntimeError("imageio is not installed; cannot encode video using this backend.")
+    with imageio.get_writer(
+        uri=str(output_path),
+        fps=fps,
+        codec="libx264",
+        format="FFMPEG",
+        quality=8,
+        macro_block_size=None,
+    ) as writer:
+        for frame in frames:
+            writer.append_data(frame)
+
+
 def _encode_with_opencv(frames: List[np.ndarray], fps: int, output_path: Path) -> None:
     if cv2 is None:
         raise RuntimeError("OpenCV is not installed; cannot fall back when ffmpeg is unavailable.")
@@ -103,7 +123,16 @@ def encode_frames_to_video(
             _encode_with_ffmpeg(frame_buffer, fps, output_path, crf, codec, pixel_format)
             return
         except Exception as exc:  # pragma: no cover - runtime safeguard
-            logger.warning("ffmpeg encoding failed (%s); falling back to OpenCV VideoWriter.", exc)
+            logger.warning("ffmpeg encoding failed (%s); trying alternate encoders.", exc)
+            output_path.unlink(missing_ok=True)
+
+    if imageio is not None:
+        try:
+            _encode_with_imageio(frame_buffer, fps, output_path)
+            return
+        except Exception as exc:  # pragma: no cover - runtime safeguard
+            logger.warning("imageio encoding failed (%s); attempting OpenCV fallback.", exc)
+            output_path.unlink(missing_ok=True)
 
     _encode_with_opencv(frame_buffer, fps, output_path)
 
@@ -116,7 +145,10 @@ def concatenate_videos(inputs: List[Path], output: Path, use_crossfade: bool = F
         return
     _require_ffmpeg()
     list_file = output.parent / "concat_list.txt"
-    list_file.write_text("\n".join(f"file '{path}'" for path in inputs) + "\n", encoding="utf-8")
+    list_file.write_text(
+        "\n".join(f"file '{path.resolve()}'" for path in inputs) + "\n",
+        encoding="utf-8",
+    )
     (
         ffmpeg
         .input(str(list_file), format="concat", safe=0)
@@ -134,11 +166,11 @@ def _concat_with_crossfade(inputs: List[Path], output: Path, duration: float) ->
 
 def mux_audio(video: Path, audio: Path, output: Path) -> None:
     _require_ffmpeg()
+    video_stream = ffmpeg.input(str(video))
+    audio_stream = ffmpeg.input(str(audio))
     (
         ffmpeg
-        .input(str(video))
-        .input(str(audio))
-        .output(str(output), c_v="copy", c_a="aac", shortest=None)
+        .output(video_stream, audio_stream, str(output), vcodec="copy", acodec="aac", shortest=None)
         .overwrite_output()
         .run()
     )
