@@ -14,6 +14,7 @@ dependencies = [
     "typer[all]>=0.12",
     "pydantic>=1.10",
     "numpy>=1.24",
+    "Pillow>=9.0",
     "rich>=13.0",
     "opencv-python>=4.8",
     "moviepy>=1.0",
@@ -21,12 +22,22 @@ dependencies = [
     "tqdm>=4.66",
     "einops>=0.7",
     "ffmpeg-python>=0.2",
+    "imageio>=2.35",
+    "imageio-ffmpeg>=0.5",
+    "gdown>=4.7",
 ]
 
 [project.optional-dependencies]
 models = [
-    "diffusers>=0.27",
-    "xformers>=0.0.26",
+    "diffusers[torch]>=0.35.1",
+    "transformers>=4.44",
+    "accelerate>=0.33",
+    "safetensors>=0.4",
+    "huggingface-hub[cli]>=0.24",
+    "sentencepiece>=0.1",
+]
+speech = [
+    "TTS>=0.22",
 ]
 dev = [
     "pytest>=7.4",
