@@ -1,0 +1,29 @@
+{
+  "project_title": "Desert Patrol",
+  "fps": 24,
+  "width": 1280,
+  "height": 720,
+  "audio_file": "assets/score.wav",
+  "model": "cogvideox",
+  "shots": [
+    {
+      "id": "s1",
+      "type": "t2v",
+      "seconds": 6,
+      "prompt": "Ultra-realistic aerial establishing shot of a sunlit desert highway..."
+    },
+    {
+      "id": "s2",
+      "type": "i2v",
+      "seconds": 6,
+      "carryover": true,
+      "prompt": "Camera pushes in toward the convoy; heat shimmer, realistic lens bokeh..."
+    },
+    {
+      "id": "s3",
+      "type": "t2v",
+      "seconds": 5,
+      "prompt": "Close, handheld perspective near a vehicle door, shallow DOF, natural skin tones..."
+    }
+  ]
+}
