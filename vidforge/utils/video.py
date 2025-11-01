@@ -16,32 +16,29 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     ffmpeg = None
 
+try:
+    import cv2
+except ImportError:  # pragma: no cover - optional dependency
+    cv2 = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 
 def _require_ffmpeg() -> None:
     if ffmpeg is None:
-        raise RuntimeError("ffmpeg-python is not installed. Please run `pip install ffmpeg-python`." )
+        raise RuntimeError("ffmpeg-python is not installed. Please run `pip install ffmpeg-python`.")
 
 
-def encode_frames_to_video(
-    frames: Iterable[np.ndarray],
+def _encode_with_ffmpeg(
+    frames: List[np.ndarray],
     fps: int,
     output_path: Path,
-    crf: int = 18,
-    codec: str = "libx264",
-    pixel_format: str = "yuv420p",
+    crf: int,
+    codec: str,
+    pixel_format: str,
 ) -> None:
-    """Encode an iterable of HxWxC uint8 frames into a video file."""
-
     _require_ffmpeg()
-    iterator = iter(frames)
-    try:
-        first = next(iterator)
-    except StopIteration:
-        raise ValueError("Cannot encode zero frames") from None
-
-    height, width = first.shape[:2]
+    height, width = frames[0].shape[:2]
     process = (
         ffmpeg
         .input("pipe:", format="rawvideo", pix_fmt="rgb24", s=f"{width}x{height}", framerate=fps)
@@ -56,13 +53,59 @@ def encode_frames_to_video(
         .run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
     )
 
-    process.stdin.write(first.astype(np.uint8).tobytes())
-    for frame in iterator:
-        process.stdin.write(frame.astype(np.uint8).tobytes())
-    process.stdin.close()
+    try:
+        for frame in frames:
+            process.stdin.write(frame.astype(np.uint8).tobytes())
+    finally:
+        process.stdin.close()
     stdout, stderr = process.communicate()
     if process.returncode != 0:  # pragma: no cover - captured via stderr logging
         raise RuntimeError(f"ffmpeg failed: {stderr.decode('utf-8', errors='replace')}")
+
+
+def _encode_with_opencv(frames: List[np.ndarray], fps: int, output_path: Path) -> None:
+    if cv2 is None:
+        raise RuntimeError("OpenCV is not installed; cannot fall back when ffmpeg is unavailable.")
+    height, width = frames[0].shape[:2]
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(str(output_path), fourcc, float(fps), (width, height))
+    if not writer.isOpened():
+        raise RuntimeError("OpenCV VideoWriter failed to open output path.")
+    try:
+        for frame in frames:
+            writer.write(cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_RGB2BGR))
+    finally:
+        writer.release()
+
+
+def encode_frames_to_video(
+    frames: Iterable[np.ndarray],
+    fps: int,
+    output_path: Path,
+    crf: int = 18,
+    codec: str = "libx264",
+    pixel_format: str = "yuv420p",
+) -> None:
+    """Encode an iterable of HxWxC uint8 frames into a video file."""
+
+    iterator = iter(frames)
+    try:
+        first = next(iterator)
+    except StopIteration:
+        raise ValueError("Cannot encode zero frames") from None
+    first_u8 = first.astype(np.uint8, copy=False)
+    frame_buffer = [first_u8]
+    for frame in iterator:
+        frame_buffer.append(np.asarray(frame, dtype=np.uint8))
+
+    if ffmpeg is not None:
+        try:
+            _encode_with_ffmpeg(frame_buffer, fps, output_path, crf, codec, pixel_format)
+            return
+        except Exception as exc:  # pragma: no cover - runtime safeguard
+            logger.warning("ffmpeg encoding failed (%s); falling back to OpenCV VideoWriter.", exc)
+
+    _encode_with_opencv(frame_buffer, fps, output_path)
 
 
 def concatenate_videos(inputs: List[Path], output: Path, use_crossfade: bool = False, crossfade_seconds: float = 0.5) -> None:

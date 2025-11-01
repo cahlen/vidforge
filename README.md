@@ -55,6 +55,7 @@ See `examples/shots_example.json` for a ready-to-run plan.
   source .venv/bin/activate
   pytest
   ```
+  👷 Tip: The pipeline tries `ffmpeg` first and automatically falls back to OpenCV’s `VideoWriter` when the CLI binary or Python bindings are missing, so tests succeed even on minimal environments. Install a system `ffmpeg` to match production behavior.
 - Benchmark (480p baseline):
   ```bash
   ./scripts/benchmark.sh

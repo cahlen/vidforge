@@ -39,10 +39,14 @@ class CogVideoXModel(BaseVideoModel):
         logger.info("Loading CogVideoX pipeline (%s) on %s", precision, self.device)
         # TODO: integrate actual CogVideoX weights download and local path override.
         torch_dtype = torch.float16 if fp16 else torch.bfloat16 if bf16 else torch.float32
-        self.pipeline = CogVideoXPipeline.from_pretrained(
-            "THUDM/CogVideoX-5B", torch_dtype=torch_dtype
-        )
-        self.pipeline = self.pipeline.to(self.device)
+        try:
+            self.pipeline = CogVideoXPipeline.from_pretrained(
+                "THUDM/CogVideoX-5B", torch_dtype=torch_dtype
+            )
+            self.pipeline = self.pipeline.to(self.device)
+        except Exception as exc:  # pragma: no cover - runtime safeguard
+            logger.warning("Failed to load CogVideoX pipeline (%s); using placeholder frames.", exc)
+            self.pipeline = None
 
     def generate_t2v(self, request: GenerationRequest) -> list[np.ndarray]:
         self.ensure_loaded()

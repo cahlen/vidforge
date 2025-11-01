@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from vidforge.utils.io import load_json
 
@@ -19,7 +19,8 @@ class ShotConfig(BaseModel):
     width: Optional[int] = None
     height: Optional[int] = None
 
-    @validator("seconds")
+    @field_validator("seconds")
+    @classmethod
     def validate_duration(cls, value: Optional[float]) -> Optional[float]:
         if value is None:
             return value
@@ -37,7 +38,8 @@ class RenderPlan(BaseModel):
     model: str = Field(default="cogvideox", pattern="^(cogvideox|hunyuan)$")
     shots: List[ShotConfig]
 
-    @validator("shots")
+    @field_validator("shots")
+    @classmethod
     def non_empty(cls, value: List[ShotConfig]) -> List[ShotConfig]:
         if not value:
             raise ValueError("Render plan contains no shots")
@@ -46,4 +48,4 @@ class RenderPlan(BaseModel):
 
 def load_plan(path: Path) -> RenderPlan:
     data = load_json(path)
-    return RenderPlan.parse_obj(data)
+    return RenderPlan.model_validate(data)

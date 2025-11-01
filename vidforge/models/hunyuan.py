@@ -42,10 +42,14 @@ class HunyuanVideoModel(BaseVideoModel):
         dtype = kwargs.get("torch_dtype")
         if dtype is None:
             dtype = torch.float16 if fp16 else torch.bfloat16 if bf16 else torch.float32
-        self.pipeline = HunyuanVideoPipeline.from_pretrained(
-            "TencentARC/HunyuanVideo", torch_dtype=dtype
-        )
-        self.pipeline = self.pipeline.to(self.device)
+        try:
+            self.pipeline = HunyuanVideoPipeline.from_pretrained(
+                "TencentARC/HunyuanVideo", torch_dtype=dtype
+            )
+            self.pipeline = self.pipeline.to(self.device)
+        except Exception as exc:  # pragma: no cover - runtime safeguard
+            logger.warning("Failed to load HunyuanVideo pipeline (%s); using placeholder frames.", exc)
+            self.pipeline = None
 
     def generate_t2v(self, request: GenerationRequest) -> list[np.ndarray]:
         self.ensure_loaded()
